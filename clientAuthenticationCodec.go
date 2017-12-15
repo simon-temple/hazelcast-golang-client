@@ -1,12 +1,7 @@
 package hz
 
-const (
-	REQUEST_TYPE = CLIENT_AUTHENTICATION
-	RESPONSE_TYPE = 107
-	RETRYABLE = true
-)
-
 type ResponseParameters struct {
+
 	Status byte
 	Address *Address
 	Uuid *string
@@ -15,6 +10,7 @@ type ResponseParameters struct {
 }
 
 func CalculateSize(username string, password string, uuid *string, ownerUuid *string, isOwnerConnection bool, clientType string, serializationVersion uint8) int {
+
 	dataSize := 0
 	dataSize += CalculateSizeStr(&username)
 	dataSize += CalculateSizeStr(&password)
@@ -29,14 +25,16 @@ func CalculateSize(username string, password string, uuid *string, ownerUuid *st
 	dataSize += BOOLEAN_SIZE_IN_BYTES
 	dataSize += CalculateSizeStr(&clientType)
 	dataSize += BYTE_SIZE_IN_BYTES
+
 	return dataSize
 }
 
 func EncodeRequest(username string, password string, uuid *string, ownerUuid *string, isOwnerConnection bool, clientType string, serializationVersion uint8) *ClientMessage{
+
 	payloadSize := CalculateSize(username, password, uuid, ownerUuid, isOwnerConnection, clientType, serializationVersion)
 	message := CreateForEncode(payloadSize)
-	message.SetMessageType(REQUEST_TYPE)
-	message.SetIsRetryable(RETRYABLE)
+	message.SetMessageType(CLIENT_AUTHENTICATION)
+	message.SetIsRetryable(true)
 	message.AppendStr(&username)
 	message.AppendStr(&password)
 	message.AppendBool(uuid == nil)
@@ -55,7 +53,6 @@ func EncodeRequest(username string, password string, uuid *string, ownerUuid *st
 	return message
 }
 
-//todo toObject bool??
 func DecodeResponse(message *ClientMessage) *ResponseParameters{
 
 	parameters := new(ResponseParameters)

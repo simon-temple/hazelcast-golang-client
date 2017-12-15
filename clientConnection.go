@@ -7,37 +7,51 @@ import (
 	"strconv"
 	"encoding/binary"
 	"sync"
-	"../app"
 	"time"
 )
 
+// An external logging impl for feedback
+type ILogging interface {
+
+	Trace(string, ...interface{})
+	Info(string, ...interface{})
+	Warn(string, ...interface{})
+	Error(string, ...interface{})
+	Fatal(string, ...interface{})
+}
+
+// Callback data as all responses are async
 type ResponseCallback struct {
+
 	NotifyChannel chan *ClientMessage
 	autoRemove    bool
 }
 
 type ClientConnection struct {
-	Address        Address //TCPAddress
+
+	Address        Address
 	readBuffer     []byte
 	cid            uint64
 	partitionCount int32
 	socketMutex    *sync.Mutex
-	socket         net.Conn //TCPConnection
+	socket         net.Conn
 
 	responsesMutex *sync.Mutex
 	responses      map[int64]*ResponseCallback
 
-	Logger *app.Logger
+	Logger ILogging
 	Closed bool
+
+	QueueSerializerId uint32
 }
 
-var ()
-
 const (
+
 	DEFAULT_EXCHANGE_TIMEOUT_MILLIS = 1000 * 60 * 2 // 2 mins
 )
 
 func NewClientConnection(address Address) *ClientConnection {
+
 	connection := new(ClientConnection)
 	connection.Address = address
 	connection.readBuffer = make([]byte, 0) //todo
@@ -45,21 +59,28 @@ func NewClientConnection(address Address) *ClientConnection {
 	connection.responsesMutex = &sync.Mutex{}
 	connection.responses = make(map[int64]*ResponseCallback)
 	connection.cid = 1
+	connection.QueueSerializerId = 0
+
 	return connection
 }
 
+// Ensure a unique id on each message exchange
 func (this *ClientConnection) NextCorrelationId() uint64 {
+
 	this.cid += 1
+
 	return this.cid
 }
 
 func (this *ClientConnection) Close() {
+
 	this.Logger.Trace("Closing connection: %v", this.socket)
 	this.socket.Close()
 	this.Closed = true;
 }
 
 func (this *ClientConnection) Connect(address Address) *Promise {
+
 	result := new(Promise)
 
 	result.SuccessChannel = make(chan interface{}, 1)
@@ -80,6 +101,7 @@ func (this *ClientConnection) Connect(address Address) *Promise {
 	return result
 }
 
+// A single socket read loop with message distribution to registered callbacks
 func (this *ClientConnection) InitReadLoop() {
 
 	go func() {
@@ -179,6 +201,7 @@ func (this *ClientConnection) ExchangeWithTimeout(msg *ClientMessage, timeout ti
 	}
 }
 
+// Receive callback registration based on message correlation id
 func (this *ClientConnection) Register(correlationId int64) *ResponseCallback {
 
 	responseCallback := ResponseCallback{}

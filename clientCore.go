@@ -7,19 +7,24 @@ import "fmt"
  */
 
 type Address struct {
+
 	Host string
 	Port int
 }
+
 func (address Address) String() string {
+
 	return fmt.Sprintf("Address: host=%s, port=%d", address.Host, address.Port)
 }
 
 type Promise struct {
+
 	SuccessChannel chan interface{}
 	FailureChannel chan error
 }
 
 func (this *Promise) ThenFirst(success func(interface{}) error, failure func(error)) *Promise {
+
 	result := new(Promise)
 
 	result.SuccessChannel = make(chan interface{}, 1)
@@ -44,6 +49,7 @@ func (this *Promise) ThenFirst(success func(interface{}) error, failure func(err
 }
 
 func (this *Promise) Then(success func(interface{}) (interface{}, error), failure func(error) error) *Promise {
+
 	result := new(Promise)
 
 	result.SuccessChannel = make(chan interface{}, 1)
@@ -70,6 +76,7 @@ func (this *Promise) Then(success func(interface{}) (interface{}, error), failur
 }
 
 func (this *Promise) ThenPromise(success func(interface{}) *Promise, failure func(error) error) *Promise {
+
 	result := new(Promise)
 
 	result.SuccessChannel = make(chan interface{}, 1)

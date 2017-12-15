@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 )
 
-/**
+/*
 This is a reverse engineer of the hz java code as two golang mummur3 projects I tried did not consistently produce the same results!
+For example, consider the key: []byte{0, 0, 0, 5, 't', 'm', 'p', '.', '4'}
+This code produces a negative hash, both https://github.com/reusee/mmh3 and https://github.com/spaolacci/murmur3 produce the same positive hash !!
  */
-func Hash32(key []byte, seed int32) int32 {
+func hash32(key []byte, seed int32) int32 {
 
 	length := len(key)
 	if length == 0 {
@@ -62,60 +64,24 @@ func Hash32(key []byte, seed int32) int32 {
 	return h1
 }
 
-//private static <R> int MurmurHash3_x86_32(LoadStrategy<R> loader, R resource, long offset, int len, int seed) {
-//// (len & ~(MURMUR32_BLOCK_SIZE - 1)) is the length rounded down to the Murmur32 block size boundary
-//final long tailStart = offset + (len & ~(MURMUR32_BLOCK_SIZE - 1));
-//
-//int c1 = 0xcc9e2d51;
-//int c2 = 0x1b873593;
-//
-//int h1 = seed;
-//
-//for (long blockAddr = offset; blockAddr < tailStart; blockAddr += MURMUR32_BLOCK_SIZE) {
-//// little-endian load order
-//int k1 = loader.getInt(resource, blockAddr);
-//k1 *= c1;
-//// ROTL32(k1,15);
-//k1 = (k1 << 15) | (k1 >>> 17);
-//k1 *= c2;
-//
-//h1 ^= k1;
-//// ROTL32(h1,13);
-//h1 = (h1 << 13) | (h1 >>> 19);
-//h1 = h1 * 5 + 0xe6546b64;
-//}
-//
-//// tail
-//int k1 = 0;
-//
-//switch (len & 0x03) {
-//case 3:
-//k1 = (loader.getByte(resource, tailStart + 2) & 0xff) << 16;
-//// fallthrough
-//case 2:
-//k1 |= (loader.getByte(resource, tailStart + 1) & 0xff) << 8;
-//// fallthrough
-//case 1:
-//k1 |= loader.getByte(resource, tailStart) & 0xff;
-//k1 *= c1;
-//// ROTL32(k1,15);
-//k1 = (k1 << 15) | (k1 >>> 17);
-//k1 *= c2;
-//h1 ^= k1;
-//default:
-//}
-//
-//// finalization
-//h1 ^= len;
-//h1 = MurmurHash3_fmix(h1);
-//return h1;
-//}
+func CalcHash(connection *ClientConnection, key [] byte) int32 {
 
-//public static int MurmurHash3_fmix(int k) {
-//k ^= k >>> 16;
-//k *= 0x85ebca6b;
-//k ^= k >>> 13;
-//k *= 0xc2b2ae35;
-//k ^= k >>> 16;
-//return k;
-//}
+	// To determine the partition ID of an operation, compute the Murmur Hash (version 3, 32-bit, see https://en.wikipedia.org/wiki/MurmurHash and http s://code.google.com/p/smhasher/wiki/MurmurHash3)
+	// of a certain byte-array (which is identified for each message description section) and take the modulus of the result over the total number of partitions. The seed for the Murmur Hash SHOULD
+	// be 0x01000193. Most operations with a key parameter use the key parameter byte-array as the data for the hash calculation.
+
+	av := hash32(key, 0x01000193)
+
+	if av == INTEGER32_MIN_VALUE {
+		av = 0
+	} else {
+		if av < 0 {
+			av = -av
+		}
+	}
+	hash := int32(av % connection.partitionCount)
+
+	connection.Logger.Trace("### Hash Calc: murmur3: %d, partition count: %d, hash: %d", av, connection.partitionCount, hash)
+
+	return hash
+}

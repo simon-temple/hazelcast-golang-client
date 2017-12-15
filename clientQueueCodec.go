@@ -39,26 +39,6 @@ func EncodeQueueClearRequest(name string) *ClientMessage {
 	return message
 }
 
-func calcHash(connection *ClientConnection, key [] byte) int32 {
-
-	// To determine the partition ID of an operation, compute the Murmur Hash (version 3, 32-bit, see https://en.wikipedia.org/wiki/MurmurHash and http s://code.google.com/p/smhasher/wiki/MurmurHash3)
-	// of a certain byte-array (which is identified for each message description section) and take the modulus of the result over the total number of partitions. The seed for the Murmur Hash SHOULD
-	// be 0x01000193. Most operations with a key parameter use the key parameter byte-array as the data for the hash calculation.
-
-	av := Hash32(key, 0x01000193)
-	if av == -2147483648 {
-		av = 0
-	} else {
-		if av < 0 {
-			av = -av
-		}
-	}
-	hash := int32(av % connection.partitionCount)
-
-	connection.Logger.Trace("### Hash Calc: murmur3: %d, partition count: %d, hash: %d", av, connection.partitionCount, hash)
-	return hash
-}
-
 func SendQueueClearRequest(connection *ClientConnection, name string) {
 
 	request := EncodeQueueClearRequest(name)
@@ -67,7 +47,7 @@ func SendQueueClearRequest(connection *ClientConnection, name string) {
 	nlbuffer := make([]byte, INT_SIZE_IN_BYTES)
 	binary.BigEndian.PutUint32(nlbuffer, uint32(len(name)))
 
-	request.SetPartitionId(calcHash(connection, []byte(append(nlbuffer, name...))))
+	request.SetPartitionId(CalcHash(connection, []byte(append(nlbuffer, name...))))
 	request.SetFlags(BEGIN_END_FLAG)
 
 	response, _ := connection.Exchange(request)
@@ -78,7 +58,6 @@ func SendQueueClearRequest(connection *ClientConnection, name string) {
 			connection.Logger.Error("    Error Code: %d", response.readInt())
 			connection.Logger.Error("    Class Name: %s", *response.readString())
 		}
-
 	}
 }
 
@@ -90,7 +69,7 @@ func SendQueuePollRequest(connection *ClientConnection, name string, timeout uin
 	nlbuffer := make([]byte, INT_SIZE_IN_BYTES)
 	binary.BigEndian.PutUint32(nlbuffer, uint32(len(name)))
 
-	request.SetPartitionId(calcHash(connection, []byte(append(nlbuffer, name...))))
+	request.SetPartitionId(CalcHash(connection, []byte(append(nlbuffer, name...))))
 	request.SetFlags(BEGIN_END_FLAG)
 
 	response, _ := connection.Exchange(request)
@@ -107,10 +86,10 @@ func SendQueuePollRequest(connection *ClientConnection, name string, timeout uin
 		if !response.readBool() {
 
 			response.readInt()   // length
-			response.readBEInt() //partition hash?
+			response.readBEInt() // partition hash?
 
 			serializerTypeId := response.readBEInt()
-			if serializerTypeId != 10 {
+			if uint32(serializerTypeId) != connection.QueueSerializerId {
 				connection.Logger.Error("Queue POLL response, invalid serializer type: %d", serializerTypeId)
 
 			} else {
@@ -132,9 +111,9 @@ func SendQueuePutRequest(connection *ClientConnection, name string, byteArray []
 	pbuffer := make([]byte, INT_SIZE_IN_BYTES)
 	binary.BigEndian.PutUint32(pbuffer, 0)
 
-	// Serializer TypeID=10
+	// Serializer Id - override the default value on ClientConnection if custom serializer is being used
 	tbuffer := make([]byte, INT_SIZE_IN_BYTES)
-	binary.BigEndian.PutUint32(tbuffer, 10)
+	binary.BigEndian.PutUint32(tbuffer, connection.QueueSerializerId)
 
 	// Length of ByteArray for serializer
 	lbuffer := make([]byte, INT_SIZE_IN_BYTES)
@@ -151,7 +130,7 @@ func SendQueuePutRequest(connection *ClientConnection, name string, byteArray []
 	nlbuffer := make([]byte, INT_SIZE_IN_BYTES)
 	binary.BigEndian.PutUint32(nlbuffer, uint32(len(name)))
 
-	request.SetPartitionId(calcHash(connection, []byte(append(nlbuffer, name...))))
+	request.SetPartitionId(CalcHash(connection, []byte(append(nlbuffer, name...))))
 	request.SetFlags(BEGIN_END_FLAG)
 
 	response, _ := connection.Exchange(request)
@@ -217,7 +196,7 @@ func ProcessQueueEvent(clientMessage *ClientMessage, connection *ClientConnectio
 	uuid := clientMessage.readString()
 	eventType := clientMessage.readInt()
 
-	connection.Logger.Trace("Proccessing queue event: %s, %d", *uuid, eventType)
+	connection.Logger.Trace("Processing queue event: %s, %d", *uuid, eventType)
 
 	if eventType == 1 {
 		// An item has been added, so go get it

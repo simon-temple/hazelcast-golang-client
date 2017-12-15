@@ -49,6 +49,7 @@ const (
 )
 
 type ClientMessage struct {
+
 	Buffer      []byte
 	writeIndex  int
 	readIndex   int
@@ -60,6 +61,7 @@ type ClientMessage struct {
  */
 
 func CreateForDecode(buffer []byte) *ClientMessage {
+
 	msg := new(ClientMessage)
 	msg.Buffer = buffer
 	msg.isRetryable = false
@@ -68,6 +70,7 @@ func CreateForDecode(buffer []byte) *ClientMessage {
 }
 
 func CreateForEncode(payloadSize int) *ClientMessage {
+
 	msg := new(ClientMessage)
 	buffer := make([]byte, HEADER_SIZE + payloadSize)
 	msg.Buffer = buffer
@@ -167,6 +170,7 @@ func (msg *ClientMessage) AppendInt64(v uint64) {
 }
 
 func (msg *ClientMessage) AppendByteArray(arr []byte) {
+
 	length := len(arr)
 	//length
 	msg.AppendInt(length)
@@ -176,6 +180,7 @@ func (msg *ClientMessage) AppendByteArray(arr []byte) {
 }
 
 func (msg *ClientMessage) AppendStr(str *string) {
+
 	if utf8.ValidString(*str) {
 		msg.AppendByteArray([]byte(*str))
 	}else {
@@ -191,6 +196,7 @@ func (msg *ClientMessage) AppendStr(str *string) {
 }
 
 func (msg *ClientMessage) AppendBool(v bool) {
+
 	if v {
 		msg.AppendByte(1)
 	}else {
@@ -203,48 +209,62 @@ func (msg *ClientMessage) AppendBool(v bool) {
  */
 
 func (msg *ClientMessage) readBEInt() int32 {
+
 	offset:= msg.readOffset()
 	int := int32(binary.BigEndian.Uint32(msg.Buffer[offset:offset + INT_SIZE_IN_BYTES]))
 	msg.readIndex += INT_SIZE_IN_BYTES
+
 	return int
 }
 
 func (msg *ClientMessage) readInt() int32 {
+
 	offset:= msg.readOffset()
 	int := int32(binary.LittleEndian.Uint32(msg.Buffer[offset:offset + INT_SIZE_IN_BYTES]))
 	msg.readIndex += INT_SIZE_IN_BYTES
+
 	return int
 }
 
 func (msg *ClientMessage) readByte() uint8 {
+
 	byte := byte(msg.Buffer[msg.readOffset()])
 	msg.readIndex += BYTE_SIZE_IN_BYTES
+
 	return byte
 }
 
 func (msg *ClientMessage) readBool() bool {
+
 	if msg.readByte() == 1 {
 		return true
 	}else {
 		return false
 	}
 }
+
 func (msg *ClientMessage) readString() *string {
+
 	str := string(msg.readByteArray())
+
 	return &str
 }
 
 func (msg *ClientMessage) readBEByteArray() []byte {
+
 	length := msg.readBEInt()
 	result := msg.Buffer[msg.readOffset(): msg.readOffset() + int(length)]
 	msg.readIndex += int(length)
+
 	return result
 }
 
 func (msg *ClientMessage) readByteArray() []byte {
+
 	length := msg.readInt()
 	result := msg.Buffer[msg.readOffset(): msg.readOffset() + int(length)]
 	msg.readIndex += int(length)
+
 	return result
 }
 
@@ -271,7 +291,3 @@ func (msg *ClientMessage) UpdateFrameLength() {
 func CalculateSizeStr(str *string) int {
 	return len(*str) + INT_SIZE_IN_BYTES
 }
-
-//func CalculateSizeData()
-
-//func CalculateSizeAddress()

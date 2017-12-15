@@ -63,7 +63,7 @@ func main() {
 	hz.SendProxyRequest(con, "myqueue", "hz:impl:queueService")
 	// Send a message to the queue
 	hz.SendQueuePutRequest(con, "myqueue", []byte("Hello World"))
-	// Take a message from teh queue or timeout
+	// Take a message from the queue or timeout
 	ba := hz.SendQueuePollRequest(con, "myqueue", 10000)
 	logger.Info("Received message: %s", string(ba))
 	// Remove our proxy

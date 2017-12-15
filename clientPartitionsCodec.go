@@ -22,7 +22,7 @@ func SendPartitions(connection *ClientConnection) {
 		connection.Logger.Error("Unexpected response to ping! Type: 0x%04x", response.GetMessageType())
 	} else {
 		elements := response.readInt()
-		connection.Logger.Trace("Member Partitions: %d\r\n", elements)
+		connection.Logger.Trace("Member Partitions: %d", elements)
 
 		for i := int32(0); i < elements; i++ {
 
@@ -33,7 +33,7 @@ func SendPartitions(connection *ClientConnection) {
 			connection.Logger.Trace("Member: %d, Partition: %s,%d,%d", i, *addressHost, addressPort, partitionId)
 
 			if connection.Address.Host == *addressHost && int32(connection.Address.Port) == addressPort {
-				connection.Logger.Trace("Connected host has partition id: %d\r\n", partitionId)
+				connection.Logger.Trace("Connected host has partition id: %d", partitionId)
 				connection.partitionCount = partitionId
 			}
 		}

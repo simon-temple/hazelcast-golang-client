@@ -172,6 +172,9 @@ func (this *ClientConnection) ExchangeWithTimeout(msg *ClientMessage, timeout ti
 
 	this.socketMutex.Lock()
 
+	cb := this.Register(msg.GetCorrelationId())
+	cb.autoRemove = true
+
 	this.Logger.Trace("====> Sending: cid=%d, type=0x%02x, partitionid=%d, framelength=%d, flags=0x%02x, dataoffset=%d", msg.GetCorrelationId(), msg.GetMessageType(), msg.GetPartitionId(), msg.GetFrameLength(), msg.GetFlags(), msg.GetDataOffset())
 
 	n, err := this.socket.Write(msg.Buffer)
@@ -188,9 +191,6 @@ func (this *ClientConnection) ExchangeWithTimeout(msg *ClientMessage, timeout ti
 	}
 
 	this.socketMutex.Unlock()
-
-	cb := this.Register(msg.GetCorrelationId())
-	cb.autoRemove = true
 
 	select {
 	case response := <-cb.NotifyChannel:
